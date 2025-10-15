@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDeRMAX建筑考核系统</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #3498db;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .image-upload {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .image-preview {
+            width: 150px;
+            height: 150px;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #ecf0f1;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .admin-item {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+        }
+        .verification-code {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+        }
+        .close-modal {
+            float: right;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .admin-settings {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        /* 管理员面板图片列表样式 */
+        .admin-image-list {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .admin-image-list img {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: zoom-in;
+            transition: transform 0.2s;
+        }
+        .admin-image-list img:hover {
+            transform: scale(1.05);
+        }
+        /* 图片放大模态框样式 */
+        #imageZoomModal {
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+        }
+        .zoom-modal-content {
+            position: relative;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            padding: 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .zoom-modal-content img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .close-zoom-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            background: rgba(0, 0, 0, 0.5);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        .close-zoom-modal:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+        /* 邮件内容样式 */
+        .email-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .copy-btn {
+            background: #2ecc71;
+            margin-top: 10px;
+        }
+        .copy-btn:hover {
+            background: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>IDeRMAX建筑考核系统</h1>
+        
+        <div class="tab-container">
+            <div class="tab active" onclick="switchTab('applicant')">申请页面</div>
+            <div class="tab" onclick="switchTab('admin')">管理员面板</div>
+            <div class="tab" onclick="switchTab('verify')">验证页面</div>
+        </div>
+        
+        <!-- 申请页面 -->
+        <div id="applicant" class="tab-content active card">
+            <h2>建筑考核申请</h2>
+            <form id="applicationForm">
+                <div class="form-group">
+                    <label for="gameId">游戏ID</label>
+                    <input type="text" id="gameId" required placeholder="请输入您的游戏ID">
+                </div>
+                
+                <div class="form-group">
+                    <label for="accountType">账号类型</label>
+                    <select id="accountType" required>
+                        <option value="">请选择账号类型</option>
+                        <option value="正版">正版</option>
+                        <option value="离线">离线</option>
+                        <option value="第三方">第三方</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">邮箱地址</label>
+                    <input type="email" id="email" required placeholder="请输入您的邮箱">
+                </div>
+                
+                <div class="form-group">
+                    <label>上传建筑图片（至少3张）</label>
+                    <div class="image-upload">
+                        <div class="image-preview" onclick="document.getElementById('image1').click()">
+                            <span id="image1Text">点击上传图片1</span>
+                            <img id="image1Preview" style="display:none;">
+                        </div>
+                        <div class="image-preview" onclick="document.getElementById('image2').click()">
+                            <span id="image2Text">点击上传图片2</span>
+                            <img id="image2Preview" style="display:none;">
+                        </div>
+                        <div class="image-preview" onclick="document.getElementById('image3').click()">
+                            <span id="image3Text">点击上传图片3</span>
+                            <img id="image3Preview" style="display:none;">
+                        </div>
+                        <input type="file" id="image1" accept="image/*" style="display:none;" onchange="previewAndConvertImage(this, 'image1Preview', 'image1Text')">
+                        <input type="file" id="image2" accept="image/*" style="display:none;" onchange="previewAndConvertImage(this, 'image2Preview', 'image2Text')">
+                        <input type="file" id="image3" accept="image/*" style="display:none;" onchange="previewAndConvertImage(this, 'image3Preview', 'image3Text')">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="notes">备注</label>
+                    <textarea id="notes" rows="4" placeholder="请添加任何其他说明..."></textarea>
+                </div>
+                
+                <button type="button" onclick="submitApplication()">提交申请</button>
+            </form>
+        </div>
+        
+        <!-- 管理员面板 -->
+        <div id="admin" class="tab-content card">
+            <h2>管理员审核面板</h2>
+            <div id="adminLoginSection">
+                <div class="form-group">
+                    <label for="adminPassword">管理员密码</label>
+                    <input type="password" id="adminPassword" placeholder="请输入管理员密码">
+                </div>
+                <button onclick="adminLogin()">登录</button>
+            </div>
+            
+            <div id="applicationsList" style="display: none;">
+                <p>暂无待审核的申请</p>
+            </div>
+        </div>
+        
+        <!-- 验证页面 -->
+        <div id="verify" class="tab-content card">
+            <h2>验证您的申请</h2>
+            <form id="verificationForm">
+                <div class="form-group">
+                    <label for="verifyGameId">游戏ID</label>
+                    <input type="text" id="verifyGameId" required placeholder="请输入您的游戏ID">
+                </div>
+                
+                <div class="form-group">
+                    <label for="verifyEmail">邮箱地址</label>
+                    <input type="email" id="verifyEmail" required placeholder="请输入您的邮箱">
+                </div>
+                
+                <div class="form-group">
+                    <label for="verificationCode">验证码</label>
+                    <input type="text" id="verificationCode" required placeholder="请输入您收到的验证码">
+                </div>
+                
+                <button type="button" onclick="verifyApplication()">验证</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 普通模态框（提示用） -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">×</span>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+    
+    <!-- 邮件内容模态框 -->
+    <div id="emailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeEmailModal()">×</span>
+            <h3 id="emailSubject"></h3>
+            <p><strong>收件人：</strong><span id="emailRecipient"></span></p>
+            <p><strong>邮件内容：</strong></p>
+            <div id="emailBody" class="email-content"></div>
+            <button class="copy-btn" onclick="copyEmailContent()">复制邮件内容</button>
+        </div>
+    </div>
+    
+    <!-- 图片放大模态框 -->
+    <div id="imageZoomModal" class="modal">
+        <div class="zoom-modal-content">
+            <span class="close-zoom-modal" onclick="closeImageZoomModal()">×</span>
+            <img id="zoomedImage" src="" alt="放大的建筑图片">
+        </div>
+    </div>
+    
+    <script>
+        let applications = JSON.parse(localStorage.getItem('idermax_applications')) || [];
+        let verificationCodes = JSON.parse(localStorage.getItem('idermax_verification_codes')) || {};
+        // 固定管理员密码，不允许修改
+        const adminPassword = 'IDeRMAXhello123';
+        let isAdminLoggedIn = false;
+        let imageBase64List = {
+            image1: '',
+            image2: '',
+            image3: ''
+        };
+        
+        // 切换标签页
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            
+            if (tabId === 'admin') {
+                if (!isAdminLoggedIn) {
+                    document.getElementById('adminLoginSection').style.display = 'block';
+                    document.getElementById('applicationsList').style.display = 'none';
+                } else {
+                    loadApplications();
+                    document.getElementById('adminLoginSection').style.display = 'none';
+                    document.getElementById('applicationsList').style.display = 'block';
+                }
+            }
+        }
+        
+        // 管理员登录（使用固定密码验证）
+        function adminLogin() {
+            const inputPassword = document.getElementById('adminPassword').value;
+            if (inputPassword === adminPassword) {
+                isAdminLoggedIn = true;
+                document.getElementById('adminLoginSection').style.display = 'none';
+                document.getElementById('applicationsList').style.display = 'block';
+                loadApplications();
+                showModal('登录成功！');
+            } else {
+                showModal('密码错误，请重试！');
+            }
+        }
+        
+        // 预览图片并转换为Base64
+        function previewAndConvertImage(fileInput, previewImgId, textId) {
+            const file = fileInput.files[0];
+            if (!file || !file.type.startsWith('image/')) {
+                showModal('请选择有效的图片文件！');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                const previewImg = document.getElementById(previewImgId);
+                const textElement = document.getElementById(textId);
+                
+                previewImg.src = base64Data;
+                previewImg.style.display = 'block';
+                textElement.style.display = 'none';
+                
+                if (previewImgId === 'image1Preview') {
+                    imageBase64List.image1 = base64Data;
+                } else if (previewImgId === 'image2Preview') {
+                    imageBase64List.image2 = base64Data;
+                } else if (previewImgId === 'image3Preview') {
+                    imageBase64List.image3 = base64Data;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 提交申请
+        function submitApplication() {
+            const gameId = document.getElementById('gameId').value.trim();
+            const accountType = document.getElementById('accountType').value;
+            const email = document.getElementById('email').value.trim();
+            const notes = document.getElementById('notes').value.trim();
+            
+            if (!gameId || !accountType || !email) {
+                showModal('游戏ID、账号类型、邮箱为必填项，请补充完整！');
+                return;
+            }
+            
+            if (!imageBase64List.image1 || !imageBase64List.image2 || !imageBase64List.image3) {
+                showModal('请上传至少3张建筑图片，确保所有图片都已预览成功！');
+                return;
+            }
+            
+            const newApplication = {
+                id: Date.now(),
+                gameId: gameId,
+                accountType: accountType,
+                email: email,
+                notes: notes,
+                status: 'pending',
+                date: new Date().toLocaleString(),
+                images: [
+                    imageBase64List.image1,
+                    imageBase64List.image2,
+                    imageBase64List.image3
+                ]
+            };
+            
+            applications.push(newApplication);
+            localStorage.setItem('idermax_applications', JSON.stringify(applications));
+            resetApplicationForm();
+            showModal('申请提交成功！请等待管理员审核，结果将发送到您的邮箱。');
+        }
+        
+        // 重置申请表单
+        function resetApplicationForm() {
+            document.getElementById('applicationForm').reset();
+            ['image1', 'image2', 'image3'].forEach(key => {
+                const previewImg = document.getElementById(`${key}Preview`);
+                const textElement = document.getElementById(`${key}Text`);
+                previewImg.style.display = 'none';
+                previewImg.src = '';
+                textElement.style.display = 'block';
+                imageBase64List[key] = '';
+            });
+        }
+        
+        // 加载申请列表
+        function loadApplications() {
+            const listContainer = document.getElementById('applicationsList');
+            const pendingApps = applications.filter(app => app.status === 'pending');
+            
+            if (pendingApps.length === 0) {
+                listContainer.innerHTML = '<p style="color:#666;">暂无待审核的申请</p>';
+                return;
+            }
+            
+            let html = '';
+            pendingApps.forEach(app => {
+                html += `
+                    <div class="admin-item">
+                        <p><strong>申请ID：</strong>${app.id}</p>
+                        <p><strong>游戏ID：</strong>${app.gameId}（${app.accountType}）</p>
+                        <p><strong>邮箱：</strong>${app.email}</p>
+                        <p><strong>申请时间：</strong>${app.date}</p>
+                        <p><strong>建筑图片：</strong></p>
+                        <div class="admin-image-list">
+                            ${app.images.map(img => `<img src="${img}" alt="建筑作品" onclick="openImageZoomModal('${img}')">`).join('')}
+                        </div>
+                        <p><strong>备注：</strong>${app.notes || '无'}</p>
+                        <button onclick="reviewApplication(${app.id}, true)">通过</button>
+                        <button onclick="reviewApplication(${app.id}, false)" style="background:#e74c3c; margin-left:10px;">拒绝</button>
+                    </div>
+                `;
+            });
+            
+            listContainer.innerHTML = html;
+        }
+        
+        // 审核申请
+        function reviewApplication(appId, isApproved) {
+            const appIndex = applications.findIndex(app => app.id === appId);
+            if (appIndex === -1) {
+                showModal('未找到该申请，请刷新页面重试！');
+                return;
+            }
+            
+            // 更新申请状态
+            applications[appIndex].status = isApproved ? 'approved' : 'rejected';
+            localStorage.setItem('idermax_applications', JSON.stringify(applications));
+            
+            // 生成验证码
+            const verificationCode = isApproved 
+                ? Math.random().toString(36).substring(2, 8).toUpperCase() 
+                : '';
+            
+            // 存储验证码信息
+            verificationCodes[applications[appIndex].email] = {
+                gameId: applications[appIndex].gameId,
+                code: verificationCode,
+                approved: isApproved,
+                appId: appId
+            };
+            localStorage.setItem('idermax_verification_codes', JSON.stringify(verificationCodes));
+            
+            // 准备邮件内容
+            const emailSubject = isApproved 
+                ? 'IDeRMAX建筑考核通过通知' 
+                : 'IDeRMAX建筑考核结果通知';
+            const emailBody = isApproved 
+                ? `恭喜您的建筑考核通过！
+您的验证码：${verificationCode}
+请前往验证页面输入验证码完成后续操作。`
+                : '很遗憾，您的建筑考核未通过，请继续优化作品后重新申请！';
+            
+            // 显示邮件内容模态框
+            document.getElementById('emailSubject').textContent = emailSubject;
+            document.getElementById('emailRecipient').textContent = applications[appIndex].email;
+            document.getElementById('emailBody').textContent = emailBody;
+            document.getElementById('emailModal').style.display = 'flex';
+            
+            // 刷新申请列表
+            loadApplications();
+        }
+        
+        // 验证申请
+        function verifyApplication() {
+            const gameId = document.getElementById('verifyGameId').value.trim();
+            const email = document.getElementById('verifyEmail').value.trim();
+            const inputCode = document.getElementById('verificationCode').value.trim();
+            
+            if (!gameId || !email || !inputCode) {
+                showModal('游戏ID、邮箱、验证码为必填项，请补充完整！');
+                return;
+            }
+            
+            const verification = verificationCodes[email];
+            if (!verification) {
+                showModal('未找到您的申请记录，请确认邮箱是否正确！');
+                return;
+            }
+            
+            if (verification.gameId !== gameId || verification.code !== inputCode) {
+                showModal('验证码错误或游戏ID不匹配，请检查后重试！');
+                return;
+            }
+            
+            if (verification.approved) {
+                showModal(`尊敬的${gameId}玩家，验证成功！请将此页面截图发送给管理员，管理员将为您办理入群手续。`);
+            } else {
+                showModal('您的申请未通过审核，无法完成验证，请重新提交申请！');
+            }
+        }
+        
+        // 显示普通模态框
+        function showModal(content) {
+            document.getElementById('modalContent').innerHTML = `<p style="line-height:1.6;">${content}</p>`;
+            document.getElementById('resultModal').style.display = 'flex';
+        }
+        
+        // 关闭普通模态框
+        function closeModal() {
+            document.getElementById('resultModal').style.display = 'none';
+        }
+        
+        // 关闭邮件模态框
+        function closeEmailModal() {
+            document.getElementById('emailModal').style.display = 'none';
+        }
+        
+        // 复制邮件内容
+        function copyEmailContent() {
+            const subject = document.getElementById('emailSubject').textContent;
+            const recipient = document.getElementById('emailRecipient').textContent;
+            const body = document.getElementById('emailBody').textContent;
+            
+            // 组合邮件内容
+            const fullContent = `主题: ${subject}\n收件人: ${recipient}\n\n${body}`;
+            
+            // 复制到剪贴板
+            navigator.clipboard.writeText(fullContent).then(() => {
+                showModal('邮件内容已复制到剪贴板，请粘贴到邮件客户端发送！');
+            }).catch(err => {
+                showModal('复制失败，请手动复制邮件内容！');
+                console.error('复制失败:', err);
+            });
+        }
+        
+        // 打开图片放大模态框
+        function openImageZoomModal(imageSrc) {
+            const zoomedImg = document.getElementById('zoomedImage');
+            zoomedImg.src = imageSrc;
+            document.getElementById('imageZoomModal').style.display = 'flex';
+        }
+        
+        // 关闭图片放大模态框
+        function closeImageZoomModal() {
+            document.getElementById('imageZoomModal').style.display = 'none';
+        }
+        
+        // 页面加载完成初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 点击模态框外部关闭
+            window.onclick = function(event) {
+                if (event.target === document.getElementById('resultModal')) {
+                    closeModal();
+                }
+                if (event.target === document.getElementById('emailModal')) {
+                    closeEmailModal();
+                }
+                if (event.target === document.getElementById('imageZoomModal')) {
+                    closeImageZoomModal();
+                }
+            };
+            
+            // 按ESC键关闭所有模态框
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeModal();
+                    closeEmailModal();
+                    closeImageZoomModal();
+                }
+            });
+            
+            if (isAdminLoggedIn) {
+                loadApplications();
+            }
+        });
+    </script>
+</body>
+</html>
+    
