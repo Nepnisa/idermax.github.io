@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IDeRMAX建筑考核系统</title>
     <style>
+        /* 保持原有的CSS样式不变 */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -138,7 +139,6 @@
             padding-top: 20px;
             border-top: 1px solid #eee;
         }
-        /* 管理员面板图片列表样式 */
         .admin-image-list {
             display: flex;
             gap: 10px;
@@ -156,7 +156,6 @@
         .admin-image-list img:hover {
             transform: scale(1.05);
         }
-        /* 图片放大模态框样式 */
         #imageZoomModal {
             background: rgba(0, 0, 0, 0.85);
             z-index: 2000;
@@ -194,7 +193,6 @@
         .close-zoom-modal:hover {
             background: rgba(0, 0, 0, 0.8);
         }
-        /* 邮件内容样式 */
         .email-content {
             background: #f8f9fa;
             padding: 15px;
@@ -317,7 +315,7 @@
         </div>
     </div>
     
-    <!-- 普通模态框（提示用） -->
+    <!-- 模态框组件 -->
     <div id="resultModal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">×</span>
@@ -325,7 +323,6 @@
         </div>
     </div>
     
-    <!-- 邮件内容模态框 -->
     <div id="emailModal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeEmailModal()">×</span>
@@ -337,7 +334,6 @@
         </div>
     </div>
     
-    <!-- 图片放大模态框 -->
     <div id="imageZoomModal" class="modal">
         <div class="zoom-modal-content">
             <span class="close-zoom-modal" onclick="closeImageZoomModal()">×</span>
@@ -346,10 +342,8 @@
     </div>
     
     <script>
-        let applications = JSON.parse(localStorage.getItem('idermax_applications')) || [];
-        let verificationCodes = JSON.parse(localStorage.getItem('idermax_verification_codes')) || {};
-        // 固定管理员密码，不允许修改
-        const adminPassword = 'IDeRMAXhello123';
+        // 后端API地址
+        const API_URL = 'http://localhost:3000/api';
         let isAdminLoggedIn = false;
         let imageBase64List = {
             image1: '',
@@ -376,17 +370,29 @@
             }
         }
         
-        // 管理员登录（使用固定密码验证）
-        function adminLogin() {
+        // 管理员登录
+        async function adminLogin() {
             const inputPassword = document.getElementById('adminPassword').value;
-            if (inputPassword === adminPassword) {
-                isAdminLoggedIn = true;
-                document.getElementById('adminLoginSection').style.display = 'none';
-                document.getElementById('applicationsList').style.display = 'block';
-                loadApplications();
-                showModal('登录成功！');
-            } else {
-                showModal('密码错误，请重试！');
+            try {
+                const response = await fetch(`${API_URL}/admin/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: inputPassword })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    isAdminLoggedIn = true;
+                    document.getElementById('adminLoginSection').style.display = 'none';
+                    document.getElementById('applicationsList').style.display = 'block';
+                    loadApplications();
+                    showModal('登录成功！');
+                } else {
+                    showModal('密码错误，请重试！');
+                }
+            } catch (error) {
+                showModal('服务器连接失败，请检查后端服务是否启动');
+                console.error('登录失败:', error);
             }
         }
         
@@ -420,7 +426,7 @@
         }
         
         // 提交申请
-        function submitApplication() {
+        async function submitApplication() {
             const gameId = document.getElementById('gameId').value.trim();
             const accountType = document.getElementById('accountType').value;
             const email = document.getElementById('email').value.trim();
@@ -437,7 +443,6 @@
             }
             
             const newApplication = {
-                id: Date.now(),
                 gameId: gameId,
                 accountType: accountType,
                 email: email,
@@ -451,10 +456,24 @@
                 ]
             };
             
-            applications.push(newApplication);
-            localStorage.setItem('idermax_applications', JSON.stringify(applications));
-            resetApplicationForm();
-            showModal('申请提交成功！请等待管理员审核，结果将发送到您的邮箱。');
+            try {
+                const response = await fetch(`${API_URL}/applications`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newApplication)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    resetApplicationForm();
+                    showModal('申请提交成功！请等待管理员审核，结果将发送到您的邮箱。');
+                } else {
+                    showModal('提交失败：' + (result.message || '未知错误'));
+                }
+            } catch (error) {
+                showModal('服务器连接失败，请稍后重试');
+                console.error('提交申请失败:', error);
+            }
         }
         
         // 重置申请表单
@@ -471,85 +490,85 @@
         }
         
         // 加载申请列表
-        function loadApplications() {
+        async function loadApplications() {
             const listContainer = document.getElementById('applicationsList');
-            const pendingApps = applications.filter(app => app.status === 'pending');
             
-            if (pendingApps.length === 0) {
-                listContainer.innerHTML = '<p style="color:#666;">暂无待审核的申请</p>';
-                return;
-            }
-            
-            let html = '';
-            pendingApps.forEach(app => {
-                html += `
-                    <div class="admin-item">
-                        <p><strong>申请ID：</strong>${app.id}</p>
-                        <p><strong>游戏ID：</strong>${app.gameId}（${app.accountType}）</p>
-                        <p><strong>邮箱：</strong>${app.email}</p>
-                        <p><strong>申请时间：</strong>${app.date}</p>
-                        <p><strong>建筑图片：</strong></p>
-                        <div class="admin-image-list">
-                            ${app.images.map(img => `<img src="${img}" alt="建筑作品" onclick="openImageZoomModal('${img}')">`).join('')}
+            try {
+                const response = await fetch(`${API_URL}/applications`);
+                const applications = await response.json();
+                const pendingApps = applications.filter(app => app.status === 'pending');
+                
+                if (pendingApps.length === 0) {
+                    listContainer.innerHTML = '<p style="color:#666;">暂无待审核的申请</p>';
+                    return;
+                }
+                
+                let html = '';
+                pendingApps.forEach(app => {
+                    html += `
+                        <div class="admin-item">
+                            <p><strong>申请ID：</strong>${app._id}</p>
+                            <p><strong>游戏ID：</strong>${app.gameId}（${app.accountType}）</p>
+                            <p><strong>邮箱：</strong>${app.email}</p>
+                            <p><strong>申请时间：</strong>${app.date}</p>
+                            <p><strong>建筑图片：</strong></p>
+                            <div class="admin-image-list">
+                                ${app.images.map(img => `<img src="${img}" alt="建筑作品" onclick="openImageZoomModal('${img}')">`).join('')}
+                            </div>
+                            <p><strong>备注：</strong>${app.notes || '无'}</p>
+                            <button onclick="reviewApplication('${app._id}', true)">通过</button>
+                            <button onclick="reviewApplication('${app._id}', false)" style="background:#e74c3c; margin-left:10px;">拒绝</button>
                         </div>
-                        <p><strong>备注：</strong>${app.notes || '无'}</p>
-                        <button onclick="reviewApplication(${app.id}, true)">通过</button>
-                        <button onclick="reviewApplication(${app.id}, false)" style="background:#e74c3c; margin-left:10px;">拒绝</button>
-                    </div>
-                `;
-            });
-            
-            listContainer.innerHTML = html;
+                    `;
+                });
+                
+                listContainer.innerHTML = html;
+            } catch (error) {
+                listContainer.innerHTML = '<p style="color:#e74c3c;">加载申请失败，请重试</p>';
+                console.error('加载申请失败:', error);
+            }
         }
         
         // 审核申请
-        function reviewApplication(appId, isApproved) {
-            const appIndex = applications.findIndex(app => app.id === appId);
-            if (appIndex === -1) {
-                showModal('未找到该申请，请刷新页面重试！');
-                return;
-            }
-            
-            // 更新申请状态
-            applications[appIndex].status = isApproved ? 'approved' : 'rejected';
-            localStorage.setItem('idermax_applications', JSON.stringify(applications));
-            
-            // 生成验证码
-            const verificationCode = isApproved 
-                ? Math.random().toString(36).substring(2, 8).toUpperCase() 
-                : '';
-            
-            // 存储验证码信息
-            verificationCodes[applications[appIndex].email] = {
-                gameId: applications[appIndex].gameId,
-                code: verificationCode,
-                approved: isApproved,
-                appId: appId
-            };
-            localStorage.setItem('idermax_verification_codes', JSON.stringify(verificationCodes));
-            
-            // 准备邮件内容
-            const emailSubject = isApproved 
-                ? 'IDeRMAX建筑考核通过通知' 
-                : 'IDeRMAX建筑考核结果通知';
-            const emailBody = isApproved 
-                ? `恭喜您的建筑考核通过！
-您的验证码：${verificationCode}
+        async function reviewApplication(appId, isApproved) {
+            try {
+                const response = await fetch(`${API_URL}/applications/${appId}/review`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ approved: isApproved })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 准备邮件内容
+                    const emailSubject = isApproved 
+                        ? 'IDeRMAX建筑考核通过通知' 
+                        : 'IDeRMAX建筑考核结果通知';
+                    const emailBody = isApproved 
+                        ? `恭喜您的建筑考核通过！
+您的验证码：${result.verificationCode}
 请前往验证页面输入验证码完成后续操作。`
-                : '很遗憾，您的建筑考核未通过，请继续优化作品后重新申请！';
-            
-            // 显示邮件内容模态框
-            document.getElementById('emailSubject').textContent = emailSubject;
-            document.getElementById('emailRecipient').textContent = applications[appIndex].email;
-            document.getElementById('emailBody').textContent = emailBody;
-            document.getElementById('emailModal').style.display = 'flex';
-            
-            // 刷新申请列表
-            loadApplications();
+                        : '很遗憾，您的建筑考核未通过，请继续优化作品后重新申请！';
+                    
+                    // 显示邮件内容模态框
+                    document.getElementById('emailSubject').textContent = emailSubject;
+                    document.getElementById('emailRecipient').textContent = result.email;
+                    document.getElementById('emailBody').textContent = emailBody;
+                    document.getElementById('emailModal').style.display = 'flex';
+                    
+                    // 刷新申请列表
+                    loadApplications();
+                } else {
+                    showModal('审核操作失败：' + (result.message || '未知错误'));
+                }
+            } catch (error) {
+                showModal('服务器连接失败，请稍后重试');
+                console.error('审核申请失败:', error);
+            }
         }
         
         // 验证申请
-        function verifyApplication() {
+        async function verifyApplication() {
             const gameId = document.getElementById('verifyGameId').value.trim();
             const email = document.getElementById('verifyEmail').value.trim();
             const inputCode = document.getElementById('verificationCode').value.trim();
@@ -559,50 +578,50 @@
                 return;
             }
             
-            const verification = verificationCodes[email];
-            if (!verification) {
-                showModal('未找到您的申请记录，请确认邮箱是否正确！');
-                return;
-            }
-            
-            if (verification.gameId !== gameId || verification.code !== inputCode) {
-                showModal('验证码错误或游戏ID不匹配，请检查后重试！');
-                return;
-            }
-            
-            if (verification.approved) {
-                showModal(`尊敬的${gameId}玩家，验证成功！请将此页面截图发送给管理员，管理员将为您办理入群手续。`);
-            } else {
-                showModal('您的申请未通过审核，无法完成验证，请重新提交申请！');
+            try {
+                const response = await fetch(`${API_URL}/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        gameId,
+                        email,
+                        code: inputCode
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showModal(`尊敬的${gameId}玩家，验证成功！请将此页面截图发送给管理员，管理员将为您办理入群手续。`);
+                } else {
+                    showModal(result.message || '验证失败，请检查信息是否正确');
+                }
+            } catch (error) {
+                showModal('服务器连接失败，请稍后重试');
+                console.error('验证申请失败:', error);
             }
         }
         
-        // 显示普通模态框
+        // 模态框控制函数
         function showModal(content) {
             document.getElementById('modalContent').innerHTML = `<p style="line-height:1.6;">${content}</p>`;
             document.getElementById('resultModal').style.display = 'flex';
         }
         
-        // 关闭普通模态框
         function closeModal() {
             document.getElementById('resultModal').style.display = 'none';
         }
         
-        // 关闭邮件模态框
         function closeEmailModal() {
             document.getElementById('emailModal').style.display = 'none';
         }
         
-        // 复制邮件内容
         function copyEmailContent() {
             const subject = document.getElementById('emailSubject').textContent;
             const recipient = document.getElementById('emailRecipient').textContent;
             const body = document.getElementById('emailBody').textContent;
             
-            // 组合邮件内容
             const fullContent = `主题: ${subject}\n收件人: ${recipient}\n\n${body}`;
             
-            // 复制到剪贴板
             navigator.clipboard.writeText(fullContent).then(() => {
                 showModal('邮件内容已复制到剪贴板，请粘贴到邮件客户端发送！');
             }).catch(err => {
@@ -611,34 +630,24 @@
             });
         }
         
-        // 打开图片放大模态框
         function openImageZoomModal(imageSrc) {
             const zoomedImg = document.getElementById('zoomedImage');
             zoomedImg.src = imageSrc;
             document.getElementById('imageZoomModal').style.display = 'flex';
         }
         
-        // 关闭图片放大模态框
         function closeImageZoomModal() {
             document.getElementById('imageZoomModal').style.display = 'none';
         }
         
-        // 页面加载完成初始化
+        // 页面初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 点击模态框外部关闭
             window.onclick = function(event) {
-                if (event.target === document.getElementById('resultModal')) {
-                    closeModal();
-                }
-                if (event.target === document.getElementById('emailModal')) {
-                    closeEmailModal();
-                }
-                if (event.target === document.getElementById('imageZoomModal')) {
-                    closeImageZoomModal();
-                }
+                if (event.target === document.getElementById('resultModal')) closeModal();
+                if (event.target === document.getElementById('emailModal')) closeEmailModal();
+                if (event.target === document.getElementById('imageZoomModal')) closeImageZoomModal();
             };
             
-            // 按ESC键关闭所有模态框
             document.addEventListener('keydown', function(event) {
                 if (event.key === 'Escape') {
                     closeModal();
@@ -646,12 +655,7 @@
                     closeImageZoomModal();
                 }
             });
-            
-            if (isAdminLoggedIn) {
-                loadApplications();
-            }
         });
     </script>
 </body>
 </html>
-    
